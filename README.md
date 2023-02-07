@@ -19,7 +19,7 @@
 │	│	├── usre_info.go: 用户信息数据访问
 │	│	└── video_info.go: 视频信息数据访问
 │	├── handler: 逻辑层
-│	│	├── douyin
+│	│	└── douyin
 │	│		├── base: 基础功能逻辑层
 │	│		│	├── feed_service.go: 视频流信息推送逻辑
 │	│		│	├── publish_service.go: 视频发布逻辑
@@ -91,9 +91,20 @@
 - 粉丝：KEY为`"follower:<userID>"`，数据结构为Set集合
 
 ## 3. 安装和运行
-- 确保安装和配置好Golang开发环境，本项目基于Golang 1.19.5开发
+### 3.1 准备工作
+- 确保安装和配置好[Golang](https://golang.google.cn/)开发环境，本项目基于Golang 1.19.5开发
 - 确保安装和配置好MySQL和Redis环境
-- 安装ffmepg
+- 安装并配置ffmepg：Ubuntu用户可使用`sudo apt-get install ffmepg`直接安装，Windows用户可通过[FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases)下载并配置环境变量
+- 克隆该项目
+### 3.2 编译和运行
+- 修改`config.yaml`文件的数据库、Hertz等服务配置信息
+- 使用`go build`命令编译构建项目
+- 运行编译完成的文件
+
+### 3.3 后端服务启动示意图
+![image](imgs/run.jpg)
 
 ## 4. 存在的问题
 - 点赞和关注时MySQL和Redis可能存在数据不一致问题
+- 前端App存在BUG，未实现消息和关注的逻辑处理
+
