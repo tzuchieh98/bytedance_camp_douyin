@@ -1,5 +1,18 @@
-# 极简版抖音后端开发项目
-该项目属于第五届字节跳动青训营大项目极简版抖音后端大项目，基于Gorm、Hertz等框架开发。
+# 极简版抖音后端服务代码仓库
+
+<div align=left>
+<img src="https://img.shields.io/badge/golang-1.19.5-blue"/>
+<img src="https://img.shields.io/badge/hertz-0.5.1-lightBlue"/>
+<img src="https://img.shields.io/badge/gorm-1.24.3-red"/>
+<img src="https://img.shields.io/badge/license-MIT-green"/>
+</div>
+
+该项目属于第五届字节跳动青训营后端进阶班极简版抖音后端服务开发大项目。项目特点如下：
+- 服务基于字节跳动开源HTTP框架[Hertz](https://www.cloudwego.io/zh/docs/hertz/overview/)，使用[Hertz生成工具](https://www.cloudwego.io/zh/docs/hertz/tutorials/toolkit/toolkit/)快速构建项目框架；
+- 使用Uber开源框架[Zap](https://github.com/uber-go/zap)管理日志，实现按日期按日志级别进行日志管理，实现方法参考了[gin-vue-admin](https://github.com/flipped-aurora/gin-vue-admin)项目；
+- 可以根据`config.yaml`配置文件配置全局参数；
+- 项目结构清晰，方便扩展。
+
 
 ## 1. 项目结构
 - biz: 基于Hertz框架的HTTP服务端代码
