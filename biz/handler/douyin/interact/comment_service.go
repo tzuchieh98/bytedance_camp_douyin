@@ -5,6 +5,7 @@ package interact
 import (
 	"context"
 	"fmt"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/cache"
 	"github.com/linzijie1998/bytedance_camp_douyin/global"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -17,8 +18,8 @@ import (
 )
 
 const (
-	CommentActionPublish = 1
-	CommentActionDelete  = 2
+	commentActionPublish = 1
+	commentActionDelete  = 2
 )
 
 // CommentAction .
@@ -44,8 +45,11 @@ func CommentAction(ctx context.Context, c *app.RequestContext) {
 	}
 	userID := int64(rawID.(uint))
 
-	if req.ActionType == CommentActionPublish {
+	if req.ActionType == commentActionPublish {
 		// 发布评论
+		// 1. 创建评论实例
+		// 2. 添加评论数据
+		// 3. 更新评论计数
 		if req.CommentText == nil {
 			global.DOUYIN_LOGGER.Debug("未接收到评论信息")
 			resp.StatusCode = 1
@@ -58,30 +62,22 @@ func CommentAction(ctx context.Context, c *app.RequestContext) {
 			Content:     *req.CommentText,
 			PublishDate: util.GetSysDatetime(),
 		}
-		videos, err := dal.QueryVideoInfoByID(req.VideoID)
-		if err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频信息查询失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if len(videos) != 1 {
-			global.DOUYIN_LOGGER.Warn(fmt.Sprintf("查询到%d条的ID为%d的视频信息", len(videos), req.VideoID))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
 
-		videos[0].CommentCount++
-
-		if err := dal.PublishComment(&comment, &videos[0]); err != nil {
+		if err := dal.CreateComment(&comment); err != nil {
 			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("评论信息添加失败 err: %v", err))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
 
-	} else if req.ActionType == CommentActionDelete {
+		if err := cache.UpdateCommentCount(req.VideoID, true); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("评论计数添加失败 err: %v", err))
+			resp.StatusCode = 1
+			c.JSON(consts.StatusInternalServerError, resp)
+			return
+		}
+
+	} else if req.ActionType == commentActionDelete {
 		// 删除评论
 		if req.CommentID == nil {
 			resp.StatusCode = 1
@@ -90,6 +86,12 @@ func CommentAction(ctx context.Context, c *app.RequestContext) {
 		}
 		if err := dal.DeleteCommentByID(*req.CommentID); err != nil {
 			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("评论信息删除失败 err: %v", err))
+			resp.StatusCode = 1
+			c.JSON(consts.StatusInternalServerError, resp)
+			return
+		}
+		if err := cache.UpdateCommentCount(req.VideoID, false); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("评论计数更新失败 err: %v", err))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
@@ -133,11 +135,15 @@ func CommentList(ctx context.Context, c *app.RequestContext) {
 				c.JSON(consts.StatusInternalServerError, resp)
 				return
 			}
+
+			favoriteCnt, _ := cache.GetFavoriteCount(int64(userInfos[0].ID))
+			commentCnt, _ := cache.GetCommentCount(int64(userInfos[0].ID))
+
 			var user = new(base.User)
 			user.ID = int64(userInfos[0].ID)
 			user.Name = userInfos[0].Name
-			user.FollowCount = &userInfos[0].FollowCount
-			user.FollowerCount = &userInfos[0].FollowerCount
+			user.FollowCount = &favoriteCnt
+			user.FollowerCount = &commentCnt
 			user.IsFollow = true
 
 			var c = new(interact.Comment)

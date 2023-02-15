@@ -49,12 +49,10 @@ func PublishAction(ctx context.Context, c *app.RequestContext) {
 	}
 
 	video := model.Video{
-		UserInfoID:    userID,
-		Title:         title,
-		VideoPath:     filename,
-		CoverPath:     fmt.Sprintf("%s.jpg", filename),
-		FavoriteCount: 0,
-		CommentCount:  0,
+		UserInfoID: userID,
+		Title:      title,
+		VideoPath:  filename,
+		CoverPath:  fmt.Sprintf("%s.jpg", filename),
 	}
 
 	videoPath := filepath.Join(global.DOUYIN_CONFIG.Video.VideoUploadPath, video.VideoPath)
@@ -134,11 +132,14 @@ func PublishList(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	followCnt, _ := cache.GetFollowCount(int64(userInfos[0].ID))
+	followerCnt, _ := cache.GetFollowerCount(int64(userInfos[0].ID))
+
 	var user = new(base.User)
 	user.ID = int64(userInfos[0].ID)
 	user.Name = userInfos[0].Name
-	user.FollowCount = &userInfos[0].FollowCount
-	user.FollowerCount = &userInfos[0].FollowerCount
+	user.FollowCount = &followCnt
+	user.FollowerCount = &followerCnt
 	user.IsFollow = false // 自己不能关注自己
 
 	videoList := make([]*base.Video, len(videoInfos))
@@ -151,12 +152,16 @@ func PublishList(ctx context.Context, c *app.RequestContext) {
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
+
+		followCnt, _ := cache.GetFollowCount(int64(info.ID))
+		followerCnt, _ := cache.GetFollowerCount(int64(info.ID))
+
 		var video = new(base.Video)
 		video.ID = int64(info.ID)
 		video.PlayURL = util.GetPlayURLByFilename(path.Base(info.VideoPath))
 		video.CoverURL = util.GetCoverURLByFilename(path.Base(info.CoverPath))
-		video.FavoriteCount = info.FavoriteCount
-		video.CommentCount = info.CommentCount
+		video.FavoriteCount = followCnt
+		video.CommentCount = followerCnt
 		video.IsFavorite = isFavorite
 		video.Author = user
 		videoList[i] = video

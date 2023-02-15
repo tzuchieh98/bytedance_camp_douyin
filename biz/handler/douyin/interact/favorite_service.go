@@ -18,13 +18,16 @@ import (
 )
 
 const (
-	FavoriteActionLike   = 1
-	FavoriteActionCancel = 2
+	favoriteActionLike   = 1
+	favoriteActionCancel = 2
 )
 
 // FavoriteAction .
 // @router /douyin/favorite/action/ [POST]
 func FavoriteAction(ctx context.Context, c *app.RequestContext) {
+	// 1. 从token中解析user_id
+	// 2. 查询该用户的点赞状态
+	// 3. 根据action_type进行处理
 	var err error
 	var req interact.FavoriteActionReq
 	err = c.BindAndValidate(&req)
@@ -43,21 +46,6 @@ func FavoriteAction(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID := int64(rawID.(uint))
-
-	videos, err := dal.QueryVideoInfoByID(req.VideoID)
-	if err != nil {
-		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频信息查询失败 err: %v", err))
-		resp.StatusCode = 1
-		c.JSON(consts.StatusInternalServerError, resp)
-		return
-	}
-	if len(videos) != 1 {
-		global.DOUYIN_LOGGER.Warn(fmt.Sprintf("查询到%d条的ID为%d的视频信息", len(videos), req.VideoID))
-		resp.StatusCode = 1
-		c.JSON(consts.StatusInternalServerError, resp)
-		return
-	}
-
 	isFavorite, err := cache.GetFavoriteState(userID, req.VideoID)
 	if err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("点赞数据查询失败 err: %v", err))
@@ -66,49 +54,50 @@ func FavoriteAction(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if req.ActionType == FavoriteActionLike {
-		// 点赞
+	// 1. 判断是否已经点赞
+	// 2. 更新点赞状态
+	// 3. 添加点赞计数
+	if req.ActionType == favoriteActionLike {
+		// 判断是否已经点赞
 		if isFavorite {
 			global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试重复对ID为%d视频点赞", userID, req.VideoID))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusBadRequest, resp)
 			return
 		}
-
-		// 该部分存在MYSQL和Redis的数据一致性问题
-		videos[0].FavoriteCount++
-		if err = dal.UpdateVideoInfo(&videos[0]); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频信息更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
+		// 更新点赞状态
 		if err := cache.UpdateFavoriteState(userID, req.VideoID, true); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞信息更新失败 err: %v", err))
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞状态更新失败 err: %v", err))
+			resp.StatusCode = 1
+			c.JSON(consts.StatusInternalServerError, resp)
+			return
+		}
+		// 更新点赞计数
+		if err := cache.UpdateFavoriteCount(req.VideoID, true); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞计数更新失败 err: %v", err))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
 
-	} else if req.ActionType == FavoriteActionCancel {
-		// 取消点赞
+	} else if req.ActionType == favoriteActionCancel {
+		// 判断是否已经点赞
 		if !isFavorite {
 			resp.StatusCode = 1
 			global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试对未点赞的ID为%d视频取消点赞", userID, req.VideoID))
 			c.JSON(consts.StatusBadRequest, resp)
 			return
 		}
-
-		// 该部分存在MYSQL和Redis的数据一致性问题
-		videos[0].FavoriteCount--
-		if err = dal.UpdateVideoInfo(&videos[0]); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频信息更新失败 err: %v", err))
+		// 更新点赞状态
+		if err := cache.UpdateFavoriteState(userID, req.VideoID, false); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞信息更新失败 err: %v", err))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
-		if err := cache.UpdateFavoriteState(userID, req.VideoID, false); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞信息更新失败 err: %v", err))
+		// 更新点赞计数
+		if err := cache.UpdateFavoriteCount(req.VideoID, false); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞计数更新失败 err: %v", err))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
@@ -190,17 +179,23 @@ func FavoriteList(ctx context.Context, c *app.RequestContext) {
 			return
 		}
 
+		// 从Redis中查询点赞计数和评论计数
+		favoriteCnt, _ := cache.GetFavoriteCount(int64(userInfos[0].ID))
+		commentCnt, _ := cache.GetCommentCount(int64(userInfos[0].ID))
+		followCnt, _ := cache.GetFollowCount(int64(videoInfos[0].ID))
+		followerCnt, _ := cache.GetFollowerCount(int64(videoInfos[0].ID))
+
 		var user base.User
 		user.ID = int64(userInfos[0].ID)
 		user.Name = userInfos[0].Name
-		user.FollowCount = &userInfos[0].FollowCount
-		user.FollowerCount = &userInfos[0].FollowerCount
+		user.FollowCount = &followCnt
+		user.FollowerCount = &followerCnt
 
 		var video base.Video
 		video.ID = int64(videoInfos[0].ID)
 		video.Author = &user
-		video.CommentCount = videoInfos[0].CommentCount
-		video.FavoriteCount = videoInfos[0].FavoriteCount
+		video.CommentCount = commentCnt
+		video.FavoriteCount = favoriteCnt
 		video.PlayURL = util.GetPlayURLByFilename(path.Base(videoInfos[0].VideoPath))
 		video.CoverURL = util.GetCoverURLByFilename(path.Base(videoInfos[0].CoverPath))
 		video.IsFavorite = true // 点赞列表

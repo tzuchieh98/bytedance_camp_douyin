@@ -5,6 +5,7 @@ package base
 import (
 	"context"
 	"fmt"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/cache"
 	"github.com/linzijie1998/bytedance_camp_douyin/global"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -186,11 +187,15 @@ func UserInfo(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
+
+	followCnt, _ := cache.GetFollowCount(int64(userInfos[0].ID))
+	followerCnt, _ := cache.GetFollowerCount(int64(userInfos[0].ID))
+
 	resp.User = &base.User{
 		ID:            int64(userInfos[0].ID),
 		Name:          userInfos[0].Name,
-		FollowCount:   &userInfos[0].FollowCount,
-		FollowerCount: &userInfos[0].FollowerCount,
+		FollowCount:   &followCnt,
+		FollowerCount: &followerCnt,
 		IsFollow:      false,
 	}
 	resp.StatusCode = 0

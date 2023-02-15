@@ -86,19 +86,25 @@ func Feed(ctx context.Context, c *app.RequestContext) {
 			}
 		}
 
+		// 从Redis中查询点赞计数和评论计数
+		favoriteCnt, _ := cache.GetFavoriteCount(int64(info.ID))
+		commentCnt, _ := cache.GetCommentCount(int64(info.ID))
+		followCnt, _ := cache.GetFollowCount(int64(userInfos[0].ID))
+		followerCnt, _ := cache.GetFollowerCount(int64(userInfos[0].ID))
+
 		var user = new(base.User)
 		user.ID = int64(userInfos[0].ID)
 		user.Name = userInfos[0].Name
-		user.FollowCount = &userInfos[0].FollowCount
-		user.FollowerCount = &userInfos[0].FollowerCount
+		user.FollowCount = &followCnt
+		user.FollowerCount = &followerCnt
 		user.IsFollow = true
 
 		var video = new(base.Video)
 		video.ID = int64(info.ID)
 		video.PlayURL = util.GetPlayURLByFilename(path.Base(info.VideoPath))
 		video.CoverURL = util.GetCoverURLByFilename(path.Base(info.CoverPath))
-		video.FavoriteCount = info.FavoriteCount
-		video.CommentCount = info.CommentCount
+		video.FavoriteCount = favoriteCnt
+		video.CommentCount = commentCnt
 		video.Author = user
 		video.IsFavorite = isFavorite
 		videoList[i] = video
