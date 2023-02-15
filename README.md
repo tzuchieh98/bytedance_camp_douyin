@@ -90,18 +90,31 @@
 ### 2.1 MySQL数据库
 将用户登录信息、用户个人信息、视频信息以及评论信息存储在MySQL数据库中：
 - 用户登录表（user_login）：存储用户的登录信息，包含登录用户名以及加密存储的密码；
-- 用户信息表（user_info）：存储用户的个人信息，包含用户名、昵称、粉丝数、关注数等信息；
-- 视频信息表（video）：存储视频信息，包含标题、发布者信息ID、点赞数、存储路径等信息；
+- 用户信息表（user_info）：存储用户的个人信息，包含用户名、昵称、~~粉丝数~~、~~关注数~~等信息；
+- 视频信息表（video）：存储视频信息，包含标题、发布者信息ID、~~点赞数~~、存储路径等信息；
 - 评论信息表（comment）：存储视频的评论信息，包含被评论的视频ID、评论者ID、评论内容等信息；
 
 数据库ER图：
 ![image](imgs/er.jpg)
 
+**更新：使用Redis替换通过MySQL存储的计数信息**
+
 ### 2.2 Redis数据库
-使用Redis数据库存储用户点赞动作和关注动作的相关信息
-- 点赞：KEY为`"favor:<userID>"`，数据结构为Set集合
-- 关注：KEY为`"follow:<userID>"`，数据结构为Set集合
-- 粉丝：KEY为`"follower:<userID>"`，数据结构为Set集合
+使用Redis数据库存储用户点赞动作和关注动作以及计数相关的信息存储，使用的`key`如下所示：
+```go
+const (
+	favoriteVideoKey = "favorite_list_uid_%d"
+	favoriteCountKey = "favorite_cnt_vid_%d"
+	commentCountKey  = "comment_cnt_vid_%d"
+	followCountKey   = "follow_cnt_uid_%d"
+	followerCountKey = "follower_cnt_uid_%d"
+	followUserKey    = "follow_user_uid_%d"
+	followerUserKey  = "follower_user_uid_%d"
+)
+```
+- 点赞：用户的点赞视频ID通过数据结构`set`存储，视频的点赞计数通过`string`存储
+- 关注：用户的关注ID通过数据结构`set`存储，用户的关注计数通过`string`存储
+- 粉丝：用户的粉丝ID通过数据结构`set`存储，用户的粉丝计数通过`string`存储
 
 ## 3. 安装和运行
 ### 3.1 准备工作
@@ -110,14 +123,14 @@
 - 安装并配置ffmepg：Ubuntu用户可使用`sudo apt-get install ffmepg`直接安装，Windows用户可通过[FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases)下载并配置环境变量
 - 克隆该项目
 ### 3.2 编译和运行
-- 修改`config.yaml`文件的数据库、Hertz等服务配置信息
+- 修改`config.yaml`文件的数据库、Hertz服务等配置信息
 - 使用`go build`命令编译构建项目
-- 运行编译完成的文件
+- 运行编译后的文件
 
 ### 3.3 后端服务启动示意图
 ![image](imgs/run.jpg)
 
 ## 4. 存在的问题
-- 点赞和关注时MySQL和Redis可能存在数据不一致问题
+- ~~点赞和关注时MySQL和Redis可能存在数据不一致问题~~
 - 前端App存在BUG，未实现消息和关注的逻辑处理
 
