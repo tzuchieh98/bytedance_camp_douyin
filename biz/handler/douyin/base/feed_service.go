@@ -73,13 +73,22 @@ func Feed(ctx context.Context, c *app.RequestContext) {
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
-		// 查询点赞状态
+		// 查询点赞状态和关注状态
 		isFavorite := false
-		if req.Token != nil {
+		isFollow := false
+		if userID != 0 {
 			// 登录状态查询点赞状态
 			isFavorite, err = cache.GetFavoriteState(userID, int64(info.ID))
 			if err != nil {
 				global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询点赞状态失败 err:%v", err))
+				resp.StatusCode = 1
+				c.JSON(consts.StatusInternalServerError, resp)
+				return
+			}
+			// 登录状态下查询关注状态
+			isFollow, err = cache.GetFollowState(userID, int64(info.UserInfoID))
+			if err != nil {
+				global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询关注状态失败 err:%v", err))
 				resp.StatusCode = 1
 				c.JSON(consts.StatusInternalServerError, resp)
 				return
@@ -97,7 +106,7 @@ func Feed(ctx context.Context, c *app.RequestContext) {
 		user.Name = userInfos[0].Name
 		user.FollowCount = &followCnt
 		user.FollowerCount = &followerCnt
-		user.IsFollow = true
+		user.IsFollow = isFollow
 
 		var video = new(base.Video)
 		video.ID = int64(info.ID)

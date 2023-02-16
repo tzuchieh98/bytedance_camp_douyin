@@ -103,7 +103,7 @@ func UpdateFollowState(userID int64, followID int64, state bool) (err error) {
 }
 
 func GetFollowState(userID int64, followID int64) (bool, error) {
-	key := fmt.Sprintf(followUserKey, followID)
+	key := fmt.Sprintf(followUserKey, userID)
 	return global.DOUYIN_REDIS.SIsMember(ctx, key, followID).Result()
 }
 
