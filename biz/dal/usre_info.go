@@ -28,7 +28,7 @@ func QueryUserInfoByUserID(id int64) (userInfos []model.UserInfo, err error) {
 	return
 }
 
-// 注册: 同时向数据库存储登录信息UserLogin和用户社交信息UserInfo
+// UserRegister 注册: 同时向数据库存储登录信息UserLogin和用户社交信息UserInfo
 func UserRegister(login *model.UserLogin, info *model.UserInfo) error {
 	return global.DOUYIN_DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&login).Error; err != nil {
