@@ -77,8 +77,9 @@ struct Message {
 }
 
 struct MessageChatReq {
-    1: required i64 UserID;
-    2: required string Token;
+    1: required string Token;
+    2: required i64 ToUserID;
+    3: required i64 PreMsgTime;
 }
 
 struct MessageChatResp {

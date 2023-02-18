@@ -309,7 +309,9 @@ func RelationFriendList(ctx context.Context, c *app.RequestContext) {
 
 	// 求并集
 	friendIDs := util.GetIntersection(followUserIDs, followerUserIDs)
-	for _, id := range friendIDs {
+
+	friendList := make([]*relation.FriendUser, len(friendIDs))
+	for i, id := range friendIDs {
 		userInfos, err := dal.QueryUserInfoByUserID(id)
 		if err != nil || len(userInfos) != 1 {
 			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息失败: %v", err))
@@ -318,8 +320,11 @@ func RelationFriendList(ctx context.Context, c *app.RequestContext) {
 		}
 		friend := new(relation.FriendUser)
 		friend.ID = int64(userInfos[0].ID)
+		friend.Name = userInfos[0].Name
 		friend.IsFollow = true
+		friendList[i] = friend
 	}
 
+	resp.UserList = friendList
 	c.JSON(consts.StatusOK, resp)
 }

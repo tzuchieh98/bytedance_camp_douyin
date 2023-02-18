@@ -4,10 +4,18 @@ package relation
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/dal"
 	relation "github.com/linzijie1998/bytedance_camp_douyin/biz/model/douyin/relation"
+	"github.com/linzijie1998/bytedance_camp_douyin/global"
+	"github.com/linzijie1998/bytedance_camp_douyin/model"
+	"github.com/linzijie1998/bytedance_camp_douyin/util"
+)
+
+const (
+	sendMessageActionType = 1
 )
 
 // MessageChat .
@@ -22,6 +30,8 @@ func MessageChat(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(relation.MessageChatResp)
+
+	fmt.Printf("%v\n", req)
 
 	c.JSON(consts.StatusOK, resp)
 }
@@ -38,6 +48,33 @@ func MessageAction(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(relation.MessageActionResp)
+
+	if req.ActionType != sendMessageActionType {
+		resp.StatusCode = 1
+		c.JSON(consts.StatusBadRequest, resp)
+	}
+
+	rawID, exists := c.Get("token_user_id")
+	if !exists {
+		global.DOUYIN_LOGGER.Debug("未从请求上下文中解析到userID")
+		resp.StatusCode = 1
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID := int64(rawID.(uint))
+
+	msg := new(model.Message)
+	msg.UserID = userID
+	msg.ToUserID = req.ToUserID
+	msg.Content = req.Content
+	msg.PublishDate = util.GetSysDatetime()
+
+	if err := dal.CreateMessage(msg); err != nil {
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("会话信息添加失败 err: %v", err))
+		resp.StatusCode = 1
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
 
 	c.JSON(consts.StatusOK, resp)
 }

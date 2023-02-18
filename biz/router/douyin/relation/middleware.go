@@ -4,6 +4,7 @@ package Relation
 
 import (
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/middleware"
 )
 
 func rootMw() []app.HandlerFunc {
@@ -18,7 +19,8 @@ func _douyinMw() []app.HandlerFunc {
 
 func _messageMw() []app.HandlerFunc {
 	// your code...
-	return nil
+	return []app.HandlerFunc{middleware.JWTAuthMiddleware()}
+	//return nil
 }
 
 func _actionMw() []app.HandlerFunc {

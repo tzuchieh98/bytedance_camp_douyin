@@ -38,4 +38,5 @@ func AutoMigrateTables() {
 	global.DOUYIN_DB.AutoMigrate(&model.UserInfo{})
 	global.DOUYIN_DB.AutoMigrate(&model.Video{})
 	global.DOUYIN_DB.AutoMigrate(&model.Comment{})
+	global.DOUYIN_DB.AutoMigrate(&model.Message{})
 }
