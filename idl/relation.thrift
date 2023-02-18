@@ -43,8 +43,12 @@ struct FriendUser {
     5: required bool IsFollow;
     6: required string Avatar;
     7: optional string BackgroundImage;
-    8: optional string Message;
-    9: required i32 MsgType;
+    8: optional string Signture;
+    9: optional i64 TotalFacorited;
+    10: optional i64 WorkCount;
+    11: optional i64 FacoriteCount;
+    12: optional string Message;
+    13: required i32 MsgType;
 }
 
 struct RelationFriendListReq {
