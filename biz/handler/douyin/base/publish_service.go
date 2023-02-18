@@ -55,8 +55,8 @@ func PublishAction(ctx context.Context, c *app.RequestContext) {
 		CoverPath:  fmt.Sprintf("%s.jpg", filename),
 	}
 
-	videoPath := filepath.Join(global.DOUYIN_CONFIG.Video.VideoUploadPath, video.VideoPath)
-	coverPath := filepath.Join(global.DOUYIN_CONFIG.Video.CoverUploadPath, video.CoverPath)
+	videoPath := filepath.Join(global.DOUYIN_CONFIG.Upload.UploadRoot, "videos", video.VideoPath)
+	coverPath := filepath.Join(global.DOUYIN_CONFIG.Upload.UploadRoot, "covers", video.CoverPath)
 
 	if err := c.SaveUploadedFile(file, videoPath); err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频保存失败 err: %v", err))
@@ -93,54 +93,57 @@ func PublishList(ctx context.Context, c *app.RequestContext) {
 	}
 	resp := new(base.PublishListResp)
 
-	if req.Token == "" {
-		global.DOUYIN_LOGGER.Info("未携带Token, 无法解析上传视频信息")
-		resp.StatusCode = 1
-		c.JSON(consts.StatusOK, resp)
-		return
-	}
-	j := util.NewJWT()
-	claim, err := j.ParseToken(req.Token)
-	if err != nil {
-		global.DOUYIN_LOGGER.Info(fmt.Sprintf("Token解析失败 err: %v", err))
-		resp.StatusCode = 1
-		c.JSON(consts.StatusBadRequest, resp)
-		return
+	var userID int64
+	// 登录状态下查看发布视频的列表
+	if req.Token != "" {
+		j := util.NewJWT()
+		claim, err := j.ParseToken(req.Token)
+		if err != nil {
+			global.DOUYIN_LOGGER.Info(fmt.Sprintf("Token解析失败 err: %v", err))
+			resp.StatusCode = 1
+			c.JSON(consts.StatusBadRequest, resp)
+			return
+		}
+		userID = int64(claim.UserInfo.ID)
 	}
 
-	userID := int64(claim.UserInfo.ID)
-
-	videoInfos, err := dal.QueryVideoInfoByUserInfoID(userID)
+	// 查询req.UserID发布的视频
+	videoInfos, err := dal.QueryVideoInfoByUserInfoID(req.UserID)
 	if err != nil {
-		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频信息查询失败 err: %v", err))
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("ID为%d的用户上传的视频信息查询失败 err: %v", userID, err))
 		resp.StatusCode = 1
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
-
-	userInfos, err := dal.QueryUserInfoByUserID(userID)
-	if err != nil {
-		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("用户信息查询失败 err: %v", err))
+	// 查询发布者的用户信息
+	userInfos, err := dal.QueryUserInfoByUserID(req.UserID)
+	if err != nil || len(userInfos) > 1 {
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("ID为%d的用户信息查询失败 err: %v", userID, err))
 		resp.StatusCode = 1
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
 	if len(userInfos) != 1 {
-		global.DOUYIN_LOGGER.Warn(fmt.Sprintf("查询到超过一条的ID为%d的用户信息", userID))
+		global.DOUYIN_LOGGER.Info(fmt.Sprintf("未找到ID为%d的用户信息", req.UserID))
 		resp.StatusCode = 1
-		c.JSON(consts.StatusInternalServerError, resp)
+		c.JSON(consts.StatusBadRequest, resp)
 		return
 	}
 
+	// 查询发布者的关注数和粉丝数
 	followCnt, _ := cache.GetFollowCount(int64(userInfos[0].ID))
 	followerCnt, _ := cache.GetFollowerCount(int64(userInfos[0].ID))
+	isFollow := false // 自己不能关注自己
+	if userID != req.UserID {
+		isFollow, _ = cache.GetFollowState(userID, req.UserID)
+	}
 
 	var user = new(base.User)
-	user.ID = int64(userInfos[0].ID)
+	user.ID = req.UserID
 	user.Name = userInfos[0].Name
 	user.FollowCount = &followCnt
 	user.FollowerCount = &followerCnt
-	user.IsFollow = false // 自己不能关注自己
+	user.IsFollow = isFollow
 
 	videoList := make([]*base.Video, len(videoInfos))
 	for i, info := range videoInfos {

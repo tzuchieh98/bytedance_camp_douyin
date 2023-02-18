@@ -24,13 +24,11 @@ func main() {
 		server.WithHostPorts(global.DOUYIN_CONFIG.Hertz.WithHostPorts()),
 	)
 
-	global.DOUYIN_LOGGER.Info("start hertz server")
-
 	// 静态资源注册，展示视频和头像
-	h.Static("/videos", "upload")
-	h.Static("/covers", "upload")
-	//h.Static("upload", "upload")
-	//h.Static(global.DOUYIN_CONFIG.Video.CoverShowURL, "upload")
+	initialize.MakeUploadRootDirs()
+	h.Static("/videos", global.DOUYIN_CONFIG.Upload.UploadRoot)
+	h.Static("/covers", global.DOUYIN_CONFIG.Upload.UploadRoot)
+
 	// 日志中间件
 	h.Use(middleware.AccessLog())
 

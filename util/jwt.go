@@ -31,7 +31,7 @@ func NewJWT() *JWT {
 	}
 }
 
-// 创建 token
+// CreateToken 创建 token
 func (j *JWT) CreateToken(userInfo model.UserInfo) (string, error) {
 	ep, _ := ParseDuration(global.DOUYIN_CONFIG.JWT.ExpiresTime)
 	claims := CustomClaims{
@@ -46,7 +46,7 @@ func (j *JWT) CreateToken(userInfo model.UserInfo) (string, error) {
 	return token.SignedString(j.SigningKey)
 }
 
-// 解析 token
+// ParseToken 解析 token
 func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (i interface{}, e error) {
 		return j.SigningKey, nil

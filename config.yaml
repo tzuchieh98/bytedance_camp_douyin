@@ -1,3 +1,4 @@
+# mysql服务器连接配置
 mysql:
   host: "192.168.204.129"
   port: "3306"
@@ -6,28 +7,32 @@ mysql:
   password: "123456"
   config: "charset=utf8mb4&parseTime=True&loc=Local"
 
+# hertz服务启动的IP地址以及端口号
 hertz:
   host: "192.168.31.226"
   port: "8080"
 
+# JWT加密相关配置
 jwt:
   signing-key: "bytedance"
   expires-time: "7d"
   buffer-time: "1d"
   issuer: "linzijie"
 
-video:
-  video_upload_path: "./upload/videos"
-  cover_upload_path: "./upload/covers"
-  video_play_url: "videos"
-  cover_show_url: "covers"
+# 视频和视频截图的上传位置以及解析的路由地址
+upload:
+  public_host: "192.168.31.226"
+  public_port: "8080"
+  upload_root: "./upload"
 
+# Redis服务器连接配置
 redis:
   Host: "192.168.204.129"
   Port: "6379"
   Password: "123456"
   DB: 0
 
+# 日志相关配置
 zap:
   level: info
   format: console

@@ -5,10 +5,11 @@ package base
 import (
 	"context"
 	"fmt"
-	"github.com/linzijie1998/bytedance_camp_douyin/global"
-	"github.com/linzijie1998/bytedance_camp_douyin/model"
 	"path"
 	"time"
+
+	"github.com/linzijie1998/bytedance_camp_douyin/global"
+	"github.com/linzijie1998/bytedance_camp_douyin/model"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	MaxVideosNum = 30
+	maxVideosNum = 30
 )
 
 // Feed 视频流信息.
@@ -52,10 +53,11 @@ func Feed(ctx context.Context, c *app.RequestContext) {
 	var videoInfos []model.Video
 	// LatestTime为空则将其设置为当前时间
 	if req.LatestTime == nil {
-		*req.LatestTime = time.Now().UnixNano() / 1e6
+		nowTime := time.Now().UnixNano() / 1e6
+		req.LatestTime = &nowTime
 	}
 	videoInfos, err = dal.QueryVideoInfosWithLimitAndTime(
-		MaxVideosNum, time.Unix(*req.LatestTime/1e3, *req.LatestTime/1e3))
+		maxVideosNum, time.Unix(*req.LatestTime/1e3, *req.LatestTime/1e3))
 	if err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询视频信息失败 err:%v", err))
 		resp.StatusCode = 1

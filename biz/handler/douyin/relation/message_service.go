@@ -31,8 +31,6 @@ func MessageChat(ctx context.Context, c *app.RequestContext) {
 	}
 	resp := new(relation.MessageChatResp)
 
-	fmt.Println(req.PreMsgTime)
-
 	rawID, exists := c.Get("token_user_id")
 	if !exists {
 		global.DOUYIN_LOGGER.Debug("未从请求上下文中解析到userID")
