@@ -85,13 +85,15 @@ func Feed(ctx context.Context, c *app.RequestContext) {
 				c.JSON(consts.StatusInternalServerError, resp)
 				return
 			}
-			// 登录状态下查询关注状态
-			isFollow, err = cache.GetFollowState(userID, int64(info.UserInfoID))
-			if err != nil {
-				global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询关注状态失败 err:%v", err))
-				resp.StatusCode = 1
-				c.JSON(consts.StatusInternalServerError, resp)
-				return
+			// 登录状态下查询关注状态, 用户不能关注自己
+			if userID != int64(info.UserInfoID) {
+				isFollow, err = cache.GetFollowState(userID, int64(info.UserInfoID))
+				if err != nil {
+					global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询关注状态失败 err:%v", err))
+					resp.StatusCode = 1
+					c.JSON(consts.StatusInternalServerError, resp)
+					return
+				}
 			}
 		}
 

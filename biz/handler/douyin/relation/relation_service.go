@@ -51,6 +51,13 @@ func RelationAction(ctx context.Context, c *app.RequestContext) {
 	}
 	userID := int64(claims.UserInfo.ID)
 
+	// 用户不能对自己进行关注或者取关操作
+	if userID == req.ToUserID {
+		resp.StatusCode = 1
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
 	// 查询是否关注了该用户
 	isFollow, err := cache.GetFollowState(userID, req.ToUserID)
 	if err != nil {
@@ -272,6 +279,47 @@ func RelationFriendList(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(relation.RelationFriendListResp)
+
+	if req.Token == "" {
+		c.JSON(consts.StatusOK, resp)
+		return
+	}
+	j := util.NewJWT()
+	claim, err := j.ParseToken(req.Token)
+	if err != nil {
+		global.DOUYIN_LOGGER.Info(fmt.Sprintf("Token解析失败 err: %v", err))
+		resp.StatusCode = 1
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID := int64(claim.UserInfo.ID)
+
+	followUserIDs, err := cache.QueryFollowByUserID(userID)
+	if err != nil {
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询关注者信息失败: %v", err))
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	followerUserIDs, err := cache.QueryFollowerByUserID(userID)
+	if err != nil {
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询粉丝信息失败: %v", err))
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	// 求并集
+	friendIDs := util.GetIntersection(followUserIDs, followerUserIDs)
+	for _, id := range friendIDs {
+		userInfos, err := dal.QueryUserInfoByUserID(id)
+		if err != nil || len(userInfos) != 1 {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息失败: %v", err))
+			c.JSON(consts.StatusInternalServerError, resp)
+			return
+		}
+		friend := new(relation.FriendUser)
+		friend.ID = int64(userInfos[0].ID)
+		friend.IsFollow = true
+	}
 
 	c.JSON(consts.StatusOK, resp)
 }
