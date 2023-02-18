@@ -11,7 +11,8 @@ import (
 	relation "github.com/linzijie1998/bytedance_camp_douyin/biz/model/douyin/relation"
 	"github.com/linzijie1998/bytedance_camp_douyin/global"
 	"github.com/linzijie1998/bytedance_camp_douyin/model"
-	"github.com/linzijie1998/bytedance_camp_douyin/util"
+	"sort"
+	"time"
 )
 
 const (
@@ -28,11 +29,50 @@ func MessageChat(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
-
 	resp := new(relation.MessageChatResp)
 
-	fmt.Printf("%v\n", req)
+	fmt.Println(req.PreMsgTime)
 
+	rawID, exists := c.Get("token_user_id")
+	if !exists {
+		global.DOUYIN_LOGGER.Debug("未从请求上下文中解析到userID")
+		resp.StatusCode = 1
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+	userID := int64(rawID.(uint))
+	sendMessages, err := dal.QueryMessageByUserIDAndToUserIDWithLimit(userID, req.ToUserID, req.PreMsgTime)
+	if err != nil {
+		global.DOUYIN_LOGGER.Debug("查询会话信息失败")
+		resp.StatusCode = 1
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	receiveMessages, err := dal.QueryMessageByUserIDAndToUserIDWithLimit(req.ToUserID, userID, req.PreMsgTime)
+	if err != nil {
+		global.DOUYIN_LOGGER.Debug("查询会话信息失败")
+		resp.StatusCode = 1
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	messages := append(sendMessages, receiveMessages...)
+	sort.Slice(messages, func(i, j int) bool {
+		return (messages[i].UpdatedAt).Before(messages[j].UpdatedAt)
+	})
+
+	msgList := make([]*relation.Message, len(messages))
+	for i := 0; i < len(messages); i++ {
+		msg := new(relation.Message)
+		msg.ID = int64(messages[i].ID)
+		msg.FromUserID = messages[i].UserID
+		msg.ToUserID = messages[i].ToUserID
+		msg.Content = messages[i].Content
+		msg.CreateTime = &messages[i].PublishDate
+		msgList[i] = msg
+	}
+
+	resp.MessageList = msgList
 	c.JSON(consts.StatusOK, resp)
 }
 
@@ -67,7 +107,7 @@ func MessageAction(ctx context.Context, c *app.RequestContext) {
 	msg.UserID = userID
 	msg.ToUserID = req.ToUserID
 	msg.Content = req.Content
-	msg.PublishDate = util.GetSysDatetime()
+	msg.PublishDate = time.Now().UnixNano() / 1e6
 
 	if err := dal.CreateMessage(msg); err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("会话信息添加失败 err: %v", err))

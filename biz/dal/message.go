@@ -13,3 +13,8 @@ func QueryMessageByUserIDAndToUserID(userID int64, toUserID int64) (messages []m
 	err = global.DOUYIN_DB.Find(&messages, "user_id = ? and to_user_id = ?", userID, toUserID).Error
 	return
 }
+
+func QueryMessageByUserIDAndToUserIDWithLimit(userID int64, toUserID int64, limit int64) (messages []model.Message, err error) {
+	err = global.DOUYIN_DB.Where("publish_date > ?", limit).Find(&messages, "user_id = ? and to_user_id = ?", userID, toUserID).Error
+	return
+}

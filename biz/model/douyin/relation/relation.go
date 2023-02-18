@@ -2692,11 +2692,11 @@ func (p *RelationFriendListResp) String() string {
 }
 
 type Message struct {
-	ID         int64   `thrift:"ID,1,required" form:"id,required" json:"id,required" query:"id,required"`
-	ToUserID   int64   `thrift:"ToUserID,2,required" form:"to_user_id,required" json:"to_user_id,required" query:"to_user_id,required"`
-	FromUserID int64   `thrift:"FromUserID,3,required" form:"from_user_id,required" json:"from_user_id,required" query:"from_user_id,required"`
-	Content    string  `thrift:"Content,4,required" form:"content,required" json:"content,required" query:"content,required"`
-	CreateTime *string `thrift:"CreateTime,5,optional" form:"create_time" json:"create_time,omitempty" query:"create_time"`
+	ID         int64  `thrift:"ID,1,required" form:"id,required" json:"id,required" query:"id,required"`
+	ToUserID   int64  `thrift:"ToUserID,2,required" form:"to_user_id,required" json:"to_user_id,required" query:"to_user_id,required"`
+	FromUserID int64  `thrift:"FromUserID,3,required" form:"from_user_id,required" json:"from_user_id,required" query:"from_user_id,required"`
+	Content    string `thrift:"Content,4,required" form:"content,required" json:"content,required" query:"content,required"`
+	CreateTime *int64 `thrift:"CreateTime,5,optional" form:"create_time" json:"create_time,omitempty" query:"create_time"`
 }
 
 func NewMessage() *Message {
@@ -2719,9 +2719,9 @@ func (p *Message) GetContent() (v string) {
 	return p.Content
 }
 
-var Message_CreateTime_DEFAULT string
+var Message_CreateTime_DEFAULT int64
 
-func (p *Message) GetCreateTime() (v string) {
+func (p *Message) GetCreateTime() (v int64) {
 	if !p.IsSetCreateTime() {
 		return Message_CreateTime_DEFAULT
 	}
@@ -2808,7 +2808,7 @@ func (p *Message) Read(iprot thrift.TProtocol) (err error) {
 				}
 			}
 		case 5:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField5(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -2905,7 +2905,7 @@ func (p *Message) ReadField4(iprot thrift.TProtocol) error {
 }
 
 func (p *Message) ReadField5(iprot thrift.TProtocol) error {
-	if v, err := iprot.ReadString(); err != nil {
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		p.CreateTime = &v
@@ -3028,10 +3028,10 @@ WriteFieldEndError:
 
 func (p *Message) writeField5(oprot thrift.TProtocol) (err error) {
 	if p.IsSetCreateTime() {
-		if err = oprot.WriteFieldBegin("CreateTime", thrift.STRING, 5); err != nil {
+		if err = oprot.WriteFieldBegin("CreateTime", thrift.I64, 5); err != nil {
 			goto WriteFieldBeginError
 		}
-		if err := oprot.WriteString(*p.CreateTime); err != nil {
+		if err := oprot.WriteI64(*p.CreateTime); err != nil {
 			return err
 		}
 		if err = oprot.WriteFieldEnd(); err != nil {

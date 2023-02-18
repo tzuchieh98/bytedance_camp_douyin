@@ -73,7 +73,7 @@ struct Message {
     2: required i64 ToUserID;
     3: required i64 FromUserID;
     4: required string Content;
-    5: optional string CreateTime;
+    5: optional i64 CreateTime;
 }
 
 struct MessageChatReq {
