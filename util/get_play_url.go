@@ -9,10 +9,10 @@ import (
 func GetPlayURLByFilename(filename string) string {
 	fmt.Println(filename)
 	return fmt.Sprintf("http://%s:%s/videos/%s",
-		global.DOUYIN_CONFIG.Hertz.Host, global.DOUYIN_CONFIG.Hertz.Port, filename)
+		global.DOUYIN_CONFIG.Upload.PublicHost, global.DOUYIN_CONFIG.Upload.PublicPort, filename)
 }
 
 func GetCoverURLByFilename(filename string) string {
 	return fmt.Sprintf("http://%s:%s/covers/%s",
-		global.DOUYIN_CONFIG.Hertz.Host, global.DOUYIN_CONFIG.Hertz.Port, filename)
+		global.DOUYIN_CONFIG.Upload.PublicHost, global.DOUYIN_CONFIG.Upload.PublicPort, filename)
 }
