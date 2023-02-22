@@ -43,6 +43,6 @@ func QueryVideoInfosWithLimit(limit int) (infos []model.Video, err error) {
 
 // QueryVideoInfosWithLimitAndTime 根据发布时间顺序查询视频（有时间限制）
 func QueryVideoInfosWithLimitAndTime(limit int, latestTime time.Time) (infos []model.Video, err error) {
-	err = global.DOUYIN_DB.Where("created_at <= ?", latestTime).Order("created_at desc").Limit(limit).Find(&infos).Error
+	err = global.DOUYIN_DB.Order("created_at desc").Where("created_at <= ?", latestTime).Limit(limit).Find(&infos).Error
 	return
 }
