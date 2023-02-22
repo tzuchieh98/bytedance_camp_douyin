@@ -204,6 +204,7 @@ func UserInfo(ctx context.Context, c *app.RequestContext) {
 	}
 
 	var user = new(base.User)
+	user.ID = int64(userInfos[0].ID)
 	if err = douyin.UserInfoSupplement(userID, user, &userInfos[0]); err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息补充失败 err:%v", err))
 		return
