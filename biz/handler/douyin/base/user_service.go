@@ -5,7 +5,7 @@ package base
 import (
 	"context"
 	"fmt"
-	"github.com/linzijie1998/bytedance_camp_douyin/biz/cache"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/handler/douyin"
 	"github.com/linzijie1998/bytedance_camp_douyin/global"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -176,6 +176,21 @@ func UserInfo(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(base.UserInfoResp)
+
+	var userID int64
+	// 登录状态下查看用户信息
+	if req.Token != "" {
+		j := util.NewJWT()
+		claim, err := j.ParseToken(req.Token)
+		if err != nil {
+			global.DOUYIN_LOGGER.Info(fmt.Sprintf("Token解析失败 err: %v", err))
+			resp.StatusCode = 1
+			c.JSON(consts.StatusBadRequest, resp)
+			return
+		}
+		userID = int64(claim.UserInfo.ID)
+	}
+
 	userInfos, err := dal.QueryUserInfoByUserID(req.UserID)
 	if err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息失败: %v", err))
@@ -188,16 +203,13 @@ func UserInfo(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	followCnt, _ := cache.GetFollowCount(int64(userInfos[0].ID))
-	followerCnt, _ := cache.GetFollowerCount(int64(userInfos[0].ID))
-
-	resp.User = &base.User{
-		ID:            int64(userInfos[0].ID),
-		Name:          userInfos[0].Name,
-		FollowCount:   &followCnt,
-		FollowerCount: &followerCnt,
-		IsFollow:      false,
+	var user = new(base.User)
+	if err = douyin.UserInfoSupplement(userID, user, &userInfos[0]); err != nil {
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息补充失败 err:%v", err))
+		return
 	}
+
+	resp.User = user
 	resp.StatusCode = 0
 	c.JSON(consts.StatusOK, resp)
 }
