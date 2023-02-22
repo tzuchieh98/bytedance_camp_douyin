@@ -116,7 +116,7 @@ func FavoriteList(ctx context.Context, c *app.RequestContext) {
 
 	userID := int64(claim.UserInfo.ID)
 
-	videoIDs, err := cache.QueryFavoriteVideosByUserID(userID)
+	videoIDs, err := cache.QueryFavoriteVideosByUserID(req.UserID)
 	if err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询点赞视频失败 err: %v", err))
 		resp.StatusCode = 1
