@@ -74,57 +74,16 @@ func RelationAction(ctx context.Context, c *app.RequestContext) {
 			c.JSON(consts.StatusBadRequest, resp)
 			return
 		}
-		// 此处需要更新多个key, 可能出现数据不一致的情况
-		if err := cache.UpdateFollowState(userID, req.ToUserID, true); err != nil {
+
+		if err := cache.UpdateFollowAndFollowerState(userID, req.ToUserID, true); err != nil {
 			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
-		if err := cache.UpdateFollowerState(req.ToUserID, userID, true); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if err := cache.UpdateFollowCount(userID, true); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if err := cache.UpdateFollowerCount(req.ToUserID, true); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
+
 	} else if req.ActionType == relationActionCancel {
-		if !isFollow {
-			global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试取消关注未关注的ID为%d的用户", userID, req.ToUserID))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusBadRequest, resp)
-			return
-		}
-		if err := cache.UpdateFollowState(userID, req.ToUserID, false); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if err := cache.UpdateFollowerState(req.ToUserID, userID, false); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if err := cache.UpdateFollowCount(userID, false); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if err := cache.UpdateFollowerCount(req.ToUserID, false); err != nil {
+		if err := cache.UpdateFollowAndFollowerState(userID, req.ToUserID, true); err != nil {
 			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关系数据更新失败 err: %v", err))
 			resp.StatusCode = 1
 			c.JSON(consts.StatusInternalServerError, resp)
@@ -167,7 +126,7 @@ func RelationFollowList(ctx context.Context, c *app.RequestContext) {
 	}
 	userID := int64(claim.UserInfo.ID)
 
-	followIDs, err := cache.QueryFollowByUserID(userID)
+	followIDs, err := cache.QueryFollowByUserID(req.UserID)
 	if err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("关注者数据查询失败 err: %v", err))
 	}
@@ -230,7 +189,7 @@ func RelationFollowerList(ctx context.Context, c *app.RequestContext) {
 	}
 	userID := int64(claim.UserInfo.ID)
 
-	followIDs, err := cache.QueryFollowerByUserID(userID)
+	followIDs, err := cache.QueryFollowerByUserID(req.UserID)
 	if err != nil {
 		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("粉丝数据查询失败 err: %v", err))
 	}
