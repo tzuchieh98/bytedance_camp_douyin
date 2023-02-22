@@ -109,18 +109,24 @@
 使用Redis数据库存储用户点赞动作和关注动作以及计数相关的信息存储，使用的`key`如下所示：
 ```go
 const (
-	favoriteVideoKey = "favorite_list_uid_%d"
-	favoriteCountKey = "favorite_cnt_vid_%d"
-	commentCountKey  = "comment_cnt_vid_%d"
-	followCountKey   = "follow_cnt_uid_%d"
-	followerCountKey = "follower_cnt_uid_%d"
-	followUserKey    = "follow_user_uid_%d"
-	followerUserKey  = "follower_user_uid_%d"
+    VideoKey = "video_%d"
+    VideoFavoriteField  = "video_favorite_cnt"
+    CommentField = "comment_cnt"
+    
+    FollowKey   = "follow_uid_%d"
+    FollowerKey = "follower_uid_%d"
+    
+    UserKey = "user_%d"
+    WorkField = "work_cnt"
+    UserFavoriteField   = "user_favorite_cnt"
+    TotalFavoritedField = "total_favorited_cnt"
+    
+    FavoriteVideoKey = "favorite_set_uid_%d"
 )
 ```
-- 点赞：用户的点赞视频ID通过数据结构`set`存储，视频的点赞计数通过`string`存储
-- 关注：用户的关注ID通过数据结构`set`存储，用户的关注计数通过`string`存储
-- 粉丝：用户的粉丝ID通过数据结构`set`存储，用户的粉丝计数通过`string`存储
+- 点赞：用户的点赞视频ID通过数据结构`set`存储，视频的点赞、评论计数通过`hash`存储
+- 关注和粉丝：用户的关注\粉丝ID通过数据结构`set`存储，关注\粉丝计数通过`scard`获取
+- 用户数据：用户的作品、获赞、点赞总数通过`hash`存储
 
 ## 3. 安装和运行
 ### 3.1 准备工作
@@ -139,4 +145,5 @@ const (
 ## 4. 存在的问题
 - ~~点赞和关注时MySQL和Redis可能存在数据不一致问题~~
 - 关注和粉丝的信息使用Redis存储，在更新用户关系是需要更新多个key，可能存在数据不一致问题
+
 
