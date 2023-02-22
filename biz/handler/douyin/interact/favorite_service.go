@@ -5,15 +5,15 @@ package interact
 import (
 	"context"
 	"fmt"
-	"github.com/linzijie1998/bytedance_camp_douyin/global"
-	"path"
-
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/linzijie1998/bytedance_camp_douyin/biz/cache"
 	"github.com/linzijie1998/bytedance_camp_douyin/biz/dal"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/handler/douyin"
 	"github.com/linzijie1998/bytedance_camp_douyin/biz/model/douyin/base"
 	interact "github.com/linzijie1998/bytedance_camp_douyin/biz/model/douyin/interact"
+	"github.com/linzijie1998/bytedance_camp_douyin/global"
+	"github.com/linzijie1998/bytedance_camp_douyin/model"
 	"github.com/linzijie1998/bytedance_camp_douyin/util"
 )
 
@@ -46,62 +46,38 @@ func FavoriteAction(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID := int64(rawID.(uint))
-	isFavorite, err := cache.GetFavoriteState(userID, req.VideoID)
+
+	// 验证 VideoID 是否存在
+	videoInfo, err := dal.QueryVideoInfoByID(req.VideoID)
 	if err != nil {
-		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("点赞数据查询失败 err: %v", err))
 		resp.StatusCode = 1
-		c.JSON(consts.StatusBadRequest, resp)
+		global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试对不存在的ID为%d视频点赞/取消点赞", userID, req.VideoID))
+		c.JSON(consts.StatusOK, resp)
 		return
 	}
+	authID := videoInfo[0].UserInfoID
 
-	// 1. 判断是否已经点赞
+	// 1. 判断是否已经点赞 通过 SAdd 实现幂等 并且根据返回判断是否点赞
 	// 2. 更新点赞状态
 	// 3. 添加点赞计数
 	if req.ActionType == favoriteActionLike {
-		// 判断是否已经点赞
-		if isFavorite {
-			global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试重复对ID为%d视频点赞", userID, req.VideoID))
+
+		if err = cache.UpdateFavoriteState(userID, req.VideoID, authID, true); err != nil {
 			resp.StatusCode = 1
+			global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试对的ID为%d视频点赞失败", userID, req.VideoID))
 			c.JSON(consts.StatusBadRequest, resp)
-			return
-		}
-		// 更新点赞状态
-		if err := cache.UpdateFavoriteState(userID, req.VideoID, true); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞状态更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		// 更新点赞计数
-		if err := cache.UpdateFavoriteCount(req.VideoID, true); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞计数更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
 
 	} else if req.ActionType == favoriteActionCancel {
-		// 判断是否已经点赞
-		if !isFavorite {
+
+		if err = cache.UpdateFavoriteState(userID, req.VideoID, authID, false); err != nil {
 			resp.StatusCode = 1
-			global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试对未点赞的ID为%d视频取消点赞", userID, req.VideoID))
+			global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户尝试对的ID为%d视频点赞失败", userID, req.VideoID))
 			c.JSON(consts.StatusBadRequest, resp)
 			return
 		}
-		// 更新点赞状态
-		if err := cache.UpdateFavoriteState(userID, req.VideoID, false); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞信息更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		// 更新点赞计数
-		if err := cache.UpdateFavoriteCount(req.VideoID, false); err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("视频点赞计数更新失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
+
 	} else {
 		global.DOUYIN_LOGGER.Info(fmt.Sprintf("错误的点赞操作 action_type: %d", req.ActionType))
 		resp.StatusCode = 1
@@ -151,57 +127,32 @@ func FavoriteList(ctx context.Context, c *app.RequestContext) {
 	videoList := make([]*base.Video, len(videoIDs))
 
 	for i, videoId := range videoIDs {
-		videoInfos, err := dal.QueryVideoInfoByID(videoId)
-		if err != nil {
+
+		var videos []model.Video
+		videos, err = dal.QueryVideoInfoByID(videoId)
+		if err != nil || len(videos) != 1 {
 			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询视频信息失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if len(videoInfos) != 1 {
-			global.DOUYIN_LOGGER.Warn(fmt.Sprintf("查询到%d条的ID为%d的视频信息", len(videoInfos), videoId))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
 
-		userInfos, err := dal.QueryUserInfoByUserID(videoInfos[0].UserInfoID)
-		if err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("用户信息查询失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		if len(userInfos) != 1 {
-			global.DOUYIN_LOGGER.Warn(fmt.Sprintf("查询到超过一条的ID为%d的用户信息", videoInfos[0].UserInfoID))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
+		info := &videos[0]
+
+		var video = new(base.Video)
+		video.ID = int64(info.ID)
+		if err = douyin.VideoInfoSupplement(userID, video, info); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询视频信息补充失败 err:%v", err))
 			return
 		}
 
-		// 从Redis中查询点赞计数和评论计数
-		favoriteCnt, _ := cache.GetFavoriteCount(int64(userInfos[0].ID))
-		commentCnt, _ := cache.GetCommentCount(int64(userInfos[0].ID))
-		followCnt, _ := cache.GetFollowCount(int64(videoInfos[0].ID))
-		followerCnt, _ := cache.GetFollowerCount(int64(videoInfos[0].ID))
+		var user = new(base.User)
+		user.ID = info.UserInfoID
+		if err = douyin.UserInfoSupplement(userID, user, nil); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息补充失败 err:%v", err))
+			return
+		}
+		video.Author = user
 
-		var user base.User
-		user.ID = int64(userInfos[0].ID)
-		user.Name = userInfos[0].Name
-		user.FollowCount = &followCnt
-		user.FollowerCount = &followerCnt
-
-		var video base.Video
-		video.ID = int64(videoInfos[0].ID)
-		video.Author = &user
-		video.CommentCount = commentCnt
-		video.FavoriteCount = favoriteCnt
-		video.PlayURL = util.GetPlayURLByFilename(path.Base(videoInfos[0].VideoPath))
-		video.CoverURL = util.GetCoverURLByFilename(path.Base(videoInfos[0].CoverPath))
-		video.IsFavorite = true // 点赞列表
-		video.Title = videoInfos[0].Title
-
-		videoList[i] = &video
+		videoList[i] = video
 	}
 
 	resp.VideoList = videoList
