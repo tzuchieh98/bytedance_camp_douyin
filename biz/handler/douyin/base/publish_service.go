@@ -9,11 +9,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/linzijie1998/bytedance_camp_douyin/biz/cache"
 	"github.com/linzijie1998/bytedance_camp_douyin/biz/dal"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/handler/douyin"
 	base "github.com/linzijie1998/bytedance_camp_douyin/biz/model/douyin/base"
 	"github.com/linzijie1998/bytedance_camp_douyin/global"
 	"github.com/linzijie1998/bytedance_camp_douyin/model"
 	"github.com/linzijie1998/bytedance_camp_douyin/util"
-	"path"
 	"path/filepath"
 )
 
@@ -77,6 +77,14 @@ func PublishAction(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// redis 用户计数
+	if err := cache.UpdateWorkCount(userID); err != nil {
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("用户作品计数失败 err: %v", err))
+		resp.StatusCode = 1
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
 	c.JSON(consts.StatusOK, resp)
 	global.DOUYIN_LOGGER.Info(fmt.Sprintf("ID为%d的用户上传了视频%s", userID, videoPath))
 }
@@ -115,6 +123,7 @@ func PublishList(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
+
 	// 查询发布者的用户信息
 	userInfos, err := dal.QueryUserInfoByUserID(req.UserID)
 	if err != nil || len(userInfos) > 1 {
@@ -123,6 +132,7 @@ func PublishList(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
+
 	if len(userInfos) != 1 {
 		global.DOUYIN_LOGGER.Info(fmt.Sprintf("未找到ID为%d的用户信息", req.UserID))
 		resp.StatusCode = 1
@@ -130,43 +140,23 @@ func PublishList(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	// 查询发布者的关注数和粉丝数
-	followCnt, _ := cache.GetFollowCount(int64(userInfos[0].ID))
-	followerCnt, _ := cache.GetFollowerCount(int64(userInfos[0].ID))
-	isFollow := false // 自己不能关注自己
-	if userID != req.UserID {
-		isFollow, _ = cache.GetFollowState(userID, req.UserID)
-	}
-
 	var user = new(base.User)
-	user.ID = req.UserID
-	user.Name = userInfos[0].Name
-	user.FollowCount = &followCnt
-	user.FollowerCount = &followerCnt
-	user.IsFollow = isFollow
+	if err = douyin.UserInfoSupplement(userID, user, &userInfos[0]); err != nil {
+		global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息补充失败 err:%v", err))
+		return
+	}
 
 	videoList := make([]*base.Video, len(videoInfos))
 	for i, info := range videoInfos {
-		// 查询点赞信息
-		isFavorite, err := cache.GetFavoriteState(userID, int64(info.ID))
-		if err != nil {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询点赞信息失败 err: %v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-
-		followCnt, _ := cache.GetFollowCount(int64(info.ID))
-		followerCnt, _ := cache.GetFollowerCount(int64(info.ID))
 
 		var video = new(base.Video)
 		video.ID = int64(info.ID)
-		video.PlayURL = util.GetPlayURLByFilename(path.Base(info.VideoPath))
-		video.CoverURL = util.GetCoverURLByFilename(path.Base(info.CoverPath))
-		video.FavoriteCount = followCnt
-		video.CommentCount = followerCnt
-		video.IsFavorite = isFavorite
 		video.Author = user
+		if err = douyin.VideoInfoSupplement(userID, video, &info); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询视频信息补充失败 err:%v", err))
+			return
+		}
+
 		videoList[i] = video
 	}
 	resp.VideoList = videoList

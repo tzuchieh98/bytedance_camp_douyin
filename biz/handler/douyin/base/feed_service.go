@@ -5,7 +5,7 @@ package base
 import (
 	"context"
 	"fmt"
-	"path"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/handler/douyin"
 	"time"
 
 	"github.com/linzijie1998/bytedance_camp_douyin/global"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"github.com/linzijie1998/bytedance_camp_douyin/biz/cache"
 	"github.com/linzijie1998/bytedance_camp_douyin/biz/dal"
 	base "github.com/linzijie1998/bytedance_camp_douyin/biz/model/douyin/base"
 	"github.com/linzijie1998/bytedance_camp_douyin/util"
@@ -67,59 +66,23 @@ func Feed(ctx context.Context, c *app.RequestContext) {
 	// 处理返回结构体
 	videoList := make([]*base.Video, len(videoInfos))
 	for i, info := range videoInfos {
-		// 查询发布者信息
-		userInfos, err := dal.QueryUserInfoByUserID(info.UserInfoID)
-		if err != nil || len(userInfos) != 1 {
-			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息失败 err:%v", err))
-			resp.StatusCode = 1
-			c.JSON(consts.StatusInternalServerError, resp)
-			return
-		}
-		// 查询点赞状态和关注状态
-		isFavorite := false
-		isFollow := false
-		if userID != 0 {
-			// 登录状态查询点赞状态
-			isFavorite, err = cache.GetFavoriteState(userID, int64(info.ID))
-			if err != nil {
-				global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询点赞状态失败 err:%v", err))
-				resp.StatusCode = 1
-				c.JSON(consts.StatusInternalServerError, resp)
-				return
-			}
-			// 登录状态下查询关注状态, 用户不能关注自己
-			if userID != int64(info.UserInfoID) {
-				isFollow, err = cache.GetFollowState(userID, int64(info.UserInfoID))
-				if err != nil {
-					global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询关注状态失败 err:%v", err))
-					resp.StatusCode = 1
-					c.JSON(consts.StatusInternalServerError, resp)
-					return
-				}
-			}
-		}
-
-		// 从Redis中查询点赞计数和评论计数
-		favoriteCnt, _ := cache.GetFavoriteCount(int64(info.ID))
-		commentCnt, _ := cache.GetCommentCount(int64(info.ID))
-		followCnt, _ := cache.GetFollowCount(int64(userInfos[0].ID))
-		followerCnt, _ := cache.GetFollowerCount(int64(userInfos[0].ID))
-
-		var user = new(base.User)
-		user.ID = int64(userInfos[0].ID)
-		user.Name = userInfos[0].Name
-		user.FollowCount = &followCnt
-		user.FollowerCount = &followerCnt
-		user.IsFollow = isFollow
 
 		var video = new(base.Video)
 		video.ID = int64(info.ID)
-		video.PlayURL = util.GetPlayURLByFilename(path.Base(info.VideoPath))
-		video.CoverURL = util.GetCoverURLByFilename(path.Base(info.CoverPath))
-		video.FavoriteCount = favoriteCnt
-		video.CommentCount = commentCnt
+		if err = douyin.VideoInfoSupplement(userID, video, &info); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询视频信息补充失败 err:%v", err))
+			return
+		}
+
+		var user = new(base.User)
+		user.ID = info.UserInfoID
+		if err = douyin.UserInfoSupplement(userID, user, nil); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("查询用户信息补充失败 err:%v", err))
+			return
+		}
+
 		video.Author = user
-		video.IsFavorite = isFavorite
+
 		videoList[i] = video
 	}
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/linzijie1998/bytedance_camp_douyin/biz/cache"
+	"github.com/linzijie1998/bytedance_camp_douyin/biz/handler/douyin"
 	"github.com/linzijie1998/bytedance_camp_douyin/global"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -50,7 +51,7 @@ func CommentAction(ctx context.Context, c *app.RequestContext) {
 		// 1. 创建评论实例
 		// 2. 添加评论数据
 		// 3. 更新评论计数
-		if req.CommentText == nil {
+		if req.CommentText == nil || *req.CommentText == "" {
 			global.DOUYIN_LOGGER.Debug("未接收到评论信息")
 			resp.StatusCode = 1
 			c.JSON(consts.StatusBadRequest, resp)
@@ -76,6 +77,21 @@ func CommentAction(ctx context.Context, c *app.RequestContext) {
 			c.JSON(consts.StatusInternalServerError, resp)
 			return
 		}
+
+		var user = new(base.User)
+		user.ID = comment.UserInfoID
+		if err = douyin.UserInfoSupplement(userID, user, nil); err != nil {
+			global.DOUYIN_LOGGER.Debug(fmt.Sprintf("用户信息补充失败 err:%v", err))
+			return
+		}
+
+		var com = new(interact.Comment)
+		com.User = user
+		com.ID = int64(comment.ID)
+		com.CreateDate = comment.PublishDate
+		com.Content = comment.Content
+
+		resp.Comment = com
 
 	} else if req.ActionType == commentActionDelete {
 		// 删除评论
@@ -117,6 +133,19 @@ func CommentList(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(interact.CommentListResp)
+	var userID int64
+	// 登录状态下查看用户信息
+	if req.Token != "" {
+		j := util.NewJWT()
+		claim, err := j.ParseToken(req.Token)
+		if err != nil {
+			global.DOUYIN_LOGGER.Info(fmt.Sprintf("Token解析失败 err: %v", err))
+			resp.StatusCode = 1
+			c.JSON(consts.StatusBadRequest, resp)
+			return
+		}
+		userID = int64(claim.UserInfo.ID)
+	}
 
 	comments, err := dal.QueryCommentByVideoID(req.VideoID)
 	if err != nil {
@@ -128,30 +157,21 @@ func CommentList(ctx context.Context, c *app.RequestContext) {
 	if len(comments) != 0 {
 		commentList := make([]*interact.Comment, len(comments))
 		for i, comment := range comments {
-			userInfos, err := dal.QueryUserInfoByUserID(comment.UserInfoID)
-			if err != nil || len(userInfos) != 1 {
-				global.DOUYIN_LOGGER.Debug(fmt.Sprintf("用户信息查询失败 err: %v", err))
-				resp.StatusCode = 1
-				c.JSON(consts.StatusInternalServerError, resp)
+
+			var user = new(base.User)
+			user.ID = comment.UserInfoID
+			if err = douyin.UserInfoSupplement(userID, user, nil); err != nil {
+				global.DOUYIN_LOGGER.Debug(fmt.Sprintf("用户信息补充失败 err:%v", err))
 				return
 			}
 
-			favoriteCnt, _ := cache.GetFavoriteCount(int64(userInfos[0].ID))
-			commentCnt, _ := cache.GetCommentCount(int64(userInfos[0].ID))
+			var com = new(interact.Comment)
+			com.User = user
+			com.ID = int64(comment.ID)
+			com.CreateDate = comment.PublishDate
+			com.Content = comment.Content
+			commentList[i] = com
 
-			var user = new(base.User)
-			user.ID = int64(userInfos[0].ID)
-			user.Name = userInfos[0].Name
-			user.FollowCount = &favoriteCnt
-			user.FollowerCount = &commentCnt
-			user.IsFollow = true
-
-			var c = new(interact.Comment)
-			c.User = user
-			c.ID = int64(comment.ID)
-			c.CreateDate = comment.PublishDate
-			c.Content = comment.Content
-			commentList[i] = c
 		}
 		resp.CommentList = commentList
 	}

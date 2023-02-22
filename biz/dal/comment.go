@@ -16,9 +16,9 @@ func DeleteCommentByID(id int64) error {
 	return global.DOUYIN_DB.Where("id = ?", id).Delete(&model.Comment{}).Error
 }
 
-// QueryCommentByVideoID 根据视频ID查询该视频的所有评论
+// QueryCommentByVideoID 根据视频ID倒序查询该视频的所有评论
 func QueryCommentByVideoID(videoId int64) (comments []model.Comment, err error) {
-	err = global.DOUYIN_DB.Find(&comments, "video_id = ?", videoId).Error
+	err = global.DOUYIN_DB.Order("created_at desc").Find(&comments, "video_id = ?", videoId).Error
 	return
 }
 
