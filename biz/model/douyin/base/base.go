@@ -10,8 +10,8 @@ import (
 
 // hz new -idl idl/base.thrift --snake_tag -mod github.com/linzijie1998/bytedance_camp_douyin
 type UserRegisterReq struct {
-	Username string `thrift:"Username,1,required" json:"username,required" query:"username,required"`
-	Password string `thrift:"Password,2,required" json:"password,required" query:"password,required"`
+	Username string `thrift:"Username,1,required" json:"username,required" query:"username,required" vd:"len($)<=32"`
+	Password string `thrift:"Password,2,required" json:"password,required" query:"password,required" vd:"len($)<=32 && len($)>=6"`
 }
 
 func NewUserRegisterReq() *UserRegisterReq {
@@ -516,8 +516,8 @@ func (p *UserRegisterResp) String() string {
 }
 
 type UserLoginReq struct {
-	Username string `thrift:"Username,1,required" json:"username,required" query:"username,required"`
-	Password string `thrift:"Password,2,required" json:"password,required" query:"password,required"`
+	Username string `thrift:"Username,1,required" json:"username,required" query:"username,required" vd:"len($)<=32"`
+	Password string `thrift:"Password,2,required" json:"password,required" query:"password,required" vd:"len($)<=32 && len($)>=6"`
 }
 
 func NewUserLoginReq() *UserLoginReq {
