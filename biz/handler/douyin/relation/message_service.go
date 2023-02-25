@@ -31,6 +31,8 @@ func MessageChat(ctx context.Context, c *app.RequestContext) {
 	}
 	resp := new(relation.MessageChatResp)
 
+	//fmt.Printf("pre msg time: %v\n", req.PreMsgTime)
+
 	rawID, exists := c.Get("token_user_id")
 	if !exists {
 		global.DOUYIN_LOGGER.Debug("未从请求上下文中解析到userID")
@@ -39,22 +41,29 @@ func MessageChat(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	userID := int64(rawID.(uint))
-	sendMessages, err := dal.QueryMessageByUserIDAndToUserIDWithLimit(userID, req.ToUserID, req.PreMsgTime)
+	// req.pre_msg_time为0时: 第一次进入聊天界面, 需要查询以往的所有聊天记录
+	// req.pre_msg_time不为0时: 聊天过程中接收对方的信息, 只需要查询对方发送过来的聊天记录
+
+	// 查询对方发送的消息
+	messages, err := dal.QueryMessageByUserIDAndToUserIDWithLimit(req.ToUserID, userID, req.PreMsgTime)
 	if err != nil {
 		global.DOUYIN_LOGGER.Debug("查询会话信息失败")
 		resp.StatusCode = 1
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
-	receiveMessages, err := dal.QueryMessageByUserIDAndToUserIDWithLimit(req.ToUserID, userID, req.PreMsgTime)
-	if err != nil {
-		global.DOUYIN_LOGGER.Debug("查询会话信息失败")
-		resp.StatusCode = 1
-		c.JSON(consts.StatusInternalServerError, resp)
-		return
+	if req.PreMsgTime == 0 {
+		// 查询发送给对方的消息
+		sendMessages, err := dal.QueryMessageByUserIDAndToUserIDWithLimit(userID, req.ToUserID, req.PreMsgTime)
+		if err != nil {
+			global.DOUYIN_LOGGER.Debug("查询会话信息失败")
+			resp.StatusCode = 1
+			c.JSON(consts.StatusInternalServerError, resp)
+			return
+		}
+		messages = append(sendMessages, messages...)
 	}
 
-	messages := append(sendMessages, receiveMessages...)
 	sort.Slice(messages, func(i, j int) bool {
 		return (messages[i].UpdatedAt).Before(messages[j].UpdatedAt)
 	})
