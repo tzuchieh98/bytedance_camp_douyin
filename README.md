@@ -1,4 +1,3 @@
-## 本项目已不再更新，基于微服务全新架构的极简版抖音服务端请点击[传送门](https://github.com/linzijie1998/mini-tiktok)
 # 极简版抖音后端服务代码仓库
 
 <div align=left>
